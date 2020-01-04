@@ -54,7 +54,7 @@ class FileInstaller:
                     logger.warn(f"Unable to write file {full_dest}, skipping.")
 
 
-    def _render_template(self, contents: str):
+    def _render_template(self, contents: str) -> str:
         tm = jinja2.Template(contents)
         rendered = tm.render(foo="bar")
         return rendered

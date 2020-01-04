@@ -32,6 +32,10 @@ def main():
                         help="run for the first time",
                         action='store_true')
 
+    parser.add_argument("--no-exec", dest='execute',
+                        help="do not execute any exec-* fields in modules",
+                        action='store_false')
+
     args = parser.parse_args()
     app_settings = dataclasses.replace(
         app_settings, **{ k: v for k, v in vars(args).items() if v is not None })

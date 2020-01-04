@@ -19,3 +19,5 @@ class AppSettings:
 
     first_run: bool = field(default=False)
 
+    execute: bool = field(default=True)
+

@@ -1,0 +1,2 @@
+class FileDiscoverer:
+    pass
