@@ -51,7 +51,7 @@ class FileInstaller:
                     logger.info(f"Done: {full_source} -> {full_dest}")
 
                 except IOError as e:
-                    logger.warn("Unable to write file {full_dest}, skipping.")
+                    logger.warn(f"Unable to write file {full_dest}, skipping.")
 
 
     def _render_template(self, contents: str):
