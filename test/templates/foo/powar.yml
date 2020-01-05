@@ -1,0 +1,10 @@
+install:
+  my_awesome_foo : ~/code/powar/test/install_dir/my_awesome_foo_mod
+
+system_packages:
+  - i3wm
+  - bash
+  - xorg
+
+exec_before: "notify-send {{ lorem }}"
+exec_after: "notify-send {{ dolor }}"

@@ -4,10 +4,11 @@ import sys
 import subprocess
 import jinja2
 
-from typing import TextIO
+from typing import TextIO, Dict
 
 from powar.configuration import ModuleConfig, GlobalConfig
 from powar.settings import AppSettings
+from powar.file_discoverer import FileDiscoverer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -20,31 +21,43 @@ class FileInstaller:
     _settings: AppSettings
     _directory: str
     _module_config_path: str
+    _file_discoverer: FileDiscoverer
 
     def __init__(self,
                  module_config: ModuleConfig,
                  global_config: GlobalConfig,
                  directory: str,
-                 app_settings: AppSettings):
+                 app_settings: AppSettings,
+                 file_discoverer: FileDiscoverer):
         self._module_config = module_config
         self._global_config = global_config
         self._settings = app_settings
         self._directory = directory
-        self._module_config_path = os.path.join(_directory, self.settings.module_config_filename)
+        self._file_discoverer = file_discoverer
+        self._module_config_path = os.path.join(directory, app_settings.module_config_filename)
 
 
     def install_and_exec(self) -> None:
-        if not self._settings.dry_run and self._settings.execute:
+        files_to_update = { 
+            source: dest for source, dest in self._module_config.install.items() \
+                if self._file_discoverer.should_update(os.path.join(self._directory, source))
+        } if not self._settings.first_run else self._module_config.install
+        
+        if not files_to_update and self._module_config.install:
+            logger.info(f"No files to install/update for {self._directory}")
+            return
+
+        if self._settings.execute:
             self._run_exec("exec_before")
 
-        self._install_files()
+        self._install_files(files_to_update)
 
-        if not self._settings.dry_run and self._settings.execute:
+        if self._settings.execute:
             self._run_exec("exec_after")
 
 
-    def _install_files(self) -> None:
-        for source, dest in self._module_config.install.items():
+    def _install_files(self, files: Dict[str, str]) -> None:
+        for source, dest in files.items():
             full_source = os.path.join(self._directory, source)
             full_dest = os.path.expandvars(os.path.expanduser(dest))
 
@@ -61,6 +74,7 @@ class FileInstaller:
                 try:
                     if not self._settings.dry_run:
                         dest_stream.write(rendered)
+                        dest_stream.write("\n")
                     logger.info(f"Done: {full_source} -> {full_dest}")
 
                 except IOError as e:
@@ -71,16 +85,13 @@ class FileInstaller:
         if not self._module_config[which]:
             return
 
-        tm = jinja2.Template(self._module_config[which])
-        rendered = tm.render(**{
-            **self._module_config.variables,
-            **self._global_config.variables,
-        })
+        rendered = self._render_template(self._module_config[which])
 
-        result = subprocess.run(rendered, shell=True, check=True, stderr=subprocess.STDOUT)
+        if not self._settings.dry_run:
+            result = subprocess.run(rendered, shell=True, check=True, stderr=subprocess.STDOUT)
 
-        if result.stdout:
-            logger.info(result.stdout)
+            if result.stdout:
+                logger.info(result.stdout)
 
         logger.info(f"Ran: {which} for {self._module_config_path}")
 

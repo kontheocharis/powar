@@ -40,27 +40,38 @@ def main():
                         help="do not execute any exec-* fields in modules",
                         action='store_false')
 
+    parser.add_argument("--list-packages", dest='list_packages',
+                        help="only list system packages required to install chosen config files",
+                        action='store_true')
+
     args = parser.parse_args()
     app_settings = dataclasses.replace(
         app_settings, **{ k: v for k, v in vars(args).items() if v is not None })
-
 
     cache_man = CacheManager(app_settings.cache_dir)
 
     global_config = GlobalConfig.from_yaml_path(
             app_settings.config_dir, app_settings.global_config_filename)
 
-    file_discoverer = FileDiscoverer(app_settings, cache_man)
+    file_discoverer = FileDiscoverer(app_settings, cache_man, global_config)
 
-    dirs = file_discoverer.get_dirs_to_update()
+    dirs = file_discoverer.get_all_dirs()
 
-    if len(dirs) == 0:
-        logger.info("No new or modified files to install, exiting.")
-        sys.exit()
+    # If we only need to list packages
+    if app_settings.list_packages:
+        for d in dirs:
+            config = ModuleConfig.from_yaml_path(d, app_settings.module_config_filename)
+            for p in config.system_packages:
+                print(p)
 
-    for d in dirs:
-        config = ModuleConfig.from_yaml_path(d, app_settings.module_config_filename)
-        installer = FileInstaller(config, global_config, d, app_settings)
-        installer.install_and_exec()
+    else:
+        if len(dirs) == 0:
+            logger.info("No new or modified files to install, exiting.")
+            sys.exit()
 
-    cache_man.set_last_run(time.time())
+        for d in dirs:
+            config = ModuleConfig.from_yaml_path(d, app_settings.module_config_filename)
+            installer = FileInstaller(config, global_config, d, app_settings, file_discoverer)
+            installer.install_and_exec()
+
+        cache_man.set_last_run(time.time())

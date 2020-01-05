@@ -30,6 +30,8 @@ class BaseConfig(ABC):
 
         return cls(**config_raw)
 
+    def __getitem__(self, key):
+        return getattr(self, key)
 
 
 @dataclass

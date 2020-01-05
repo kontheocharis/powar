@@ -14,26 +14,21 @@ logger: logging.Logger = logging.getLogger(__name__)
 class FileDiscoverer:
     _settings: AppSettings
     _cache_man: CacheManager
+    _global_config: GlobalConfig
 
-    def __init__(self, app_settings: AppSettings, cache_man: CacheManager):
-        self._settings = AppSettings
-        self._cache_man = CacheManager
+    def __init__(self, app_settings: AppSettings, cache_man: CacheManager, global_config: GlobalConfig):
+        self._settings = app_settings
+        self._cache_man = cache_man
+        self._global_config = global_config
 
-    def get_dirs_to_update(self) -> List[str]:
-        all_files = glob.glob(
-            os.path.join(self._settings.config_dir, "/**/", self._settings.module_config_filename),
-            recursive=True)
+    def get_all_dirs(self) -> List[str]:
+        all_files = [
+            os.path.join(self._settings.template_dir, mod) \
+                for mod in self._global_config.modules
+        ]
 
-        if self._settings.first_run:
-            return [os.path.dirname(f) for f in all_files]
+        return all_files
 
+    def should_update(self, source: str) -> bool:
         last_update = self._cache_man.get_last_run()
-        files_to_update = []
-
-        for file in all_files:
-            file_updated_time = os.path.getmtime(file)
-
-            if file_updated_time > last_update:
-                files_to_update.append(file)
-
-        return [os.path.dirname(f) for f in files_to_update]
+        return os.path.getmtime(source) > last_update
