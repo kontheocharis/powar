@@ -11,6 +11,7 @@ from powar.file_installer import FileInstaller
 from powar.file_discoverer import FileDiscoverer
 from powar.settings import AppSettings
 from powar.cache import CacheManager
+from powar.util import realpath
 
 from typing import Dict, List, Final
 
@@ -47,6 +48,13 @@ def main():
     args = parser.parse_args()
     app_settings = dataclasses.replace(
         app_settings, **{ k: v for k, v in vars(args).items() if v is not None })
+
+    # resolve $VARIABLES and ~, ensure absolute
+    dirs_to_resolve = ['template_dir', 'config_dir', 'cache_dir']
+    for d in dirs_to_resolve:
+        app_settings[d] = realpath(app_settings[d])
+        if not os.path.isabs(app_settings[d]):
+            parser.error(f"{d} needs to be absolute")
 
     cache_man = CacheManager(app_settings.cache_dir)
 

@@ -2,26 +2,25 @@ import os
 
 from dataclasses import dataclass, field
 
-from powar.util import realpath
+from powar.util import realpath, Subscriptable
 
 @dataclass
-class AppSettings:
-
+class AppSettings(Subscriptable):
     template_dir: str = field(
         default=os.path.join(
-            realpath(os.environ.get("XDG_CONFIG_HOME", "$HOME/.config")),
+            os.environ.get("XDG_CONFIG_HOME", "$HOME/.config"),
             "powar-templates")
     )
 
     config_dir: str = field(
         default=os.path.join(
-            realpath(os.environ.get("XDG_CONFIG_HOME", "$HOME/.config")),
+            os.environ.get("XDG_CONFIG_HOME", "$HOME/.config"),
             "powar-config")
     )
 
     cache_dir: str = field(
         default=os.path.join(
-            realpath(os.environ.get("XDG_DATA_HOME", "$HOME/.local/share")),
+            os.environ.get("XDG_DATA_HOME", "$HOME/.local/share"),
             "powar")
     )
 

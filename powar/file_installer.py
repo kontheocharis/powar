@@ -4,11 +4,12 @@ import sys
 import subprocess
 import jinja2
 
-from typing import TextIO, Dict
+from typing import TextIO, Dict, List
 
 from powar.configuration import ModuleConfig, GlobalConfig
 from powar.settings import AppSettings
 from powar.file_discoverer import FileDiscoverer
+from powar.util import realpath
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -17,6 +18,10 @@ class InstallPathError(Exception):
 
 class ModuleDependencyError(Exception):
     pass
+
+class SourceNotFoundError(Exception):
+    pass
+
 
 class FileInstaller:
     _module_config: ModuleConfig
@@ -44,6 +49,7 @@ class FileInstaller:
 
     def install_and_exec(self) -> None:
         self._ensure_deps_are_met()
+        self._ensure_install_valid(self._module_config.install)
 
         files_to_update = { 
             source: dest for source, dest in self._module_config.install.items() \
@@ -66,11 +72,7 @@ class FileInstaller:
     def _install_files(self, files: Dict[str, str]) -> None:
         for source, dest in files.items():
             full_source = os.path.join(self._directory, source)
-            full_dest = os.path.expandvars(os.path.expanduser(dest))
-
-            if not os.path.isabs(full_dest):
-                raise InstallPathError(
-                    f"install path needs to be absolute: {dest} (in {self._module_config_path})")
+            full_dest = realpath(dest)
 
             with open(full_source, 'r') as source_stream:
                 source_contents = source_stream.read()
@@ -115,7 +117,7 @@ class FileInstaller:
         return rendered
 
     
-    def _ensure_deps_are_met(self):
+    def _ensure_deps_are_met(self) -> None:
         if self._module_name in self._module_config.depends:
             raise ModuleDependencyError(f"module '{self._module_name}' cannot depend on itself")
 
@@ -123,3 +125,13 @@ class FileInstaller:
             if dep not in self._global_config.modules:
                 raise ModuleDependencyError(f"module '{self._module_name}' depends on '{dep}', but this is not enabled")
 
+    def _ensure_install_valid(self, install: Dict[str, str]) -> None:
+        dir_files = os.listdir(self._directory)
+
+        for source, dest in install.items():
+            if source not in dir_files:
+                raise SourceNotFoundError(f"file '{source}' is not in directory {self._directory}")
+
+            elif not os.path.isabs(realpath(dest)):
+                raise InstallPathError(
+                    f"install path needs to be absolute: {dest} (in {self._module_config_path})")

@@ -8,12 +8,14 @@ from dataclasses import dataclass, field
 from abc import ABC
 from typing import Dict, List, Any, TypeVar
 
+from powar.util import Subscriptable
+
 class ConfigParameterError(Exception):
     pass
 
 T = TypeVar('T')
 @dataclass
-class BaseConfig(ABC):
+class BaseConfig(Subscriptable, ABC):
 
     @classmethod
     def from_yaml_path(cls: Type[T], *path_elements: List[str]) -> T:
@@ -29,9 +31,6 @@ class BaseConfig(ABC):
                 raise ConfigParameterError(f"field '{k}' unrecognised in {path}")
 
         return cls(**config_raw)
-
-    def __getitem__(self, key):
-        return getattr(self, key)
 
 
 @dataclass
