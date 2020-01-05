@@ -15,12 +15,16 @@ logger: logging.Logger = logging.getLogger(__name__)
 class InstallPathError(Exception):
     pass
 
+class ModuleDependencyError(Exception):
+    pass
+
 class FileInstaller:
     _module_config: ModuleConfig
     _global_config: GlobalConfig
     _settings: AppSettings
     _directory: str
     _module_config_path: str
+    _module_name: str
     _file_discoverer: FileDiscoverer
 
     def __init__(self,
@@ -35,9 +39,12 @@ class FileInstaller:
         self._directory = directory
         self._file_discoverer = file_discoverer
         self._module_config_path = os.path.join(directory, app_settings.module_config_filename)
+        self._module_name = directory.split(os.sep)[-1]
 
 
     def install_and_exec(self) -> None:
+        self._ensure_deps_are_met()
+
         files_to_update = { 
             source: dest for source, dest in self._module_config.install.items() \
                 if self._file_discoverer.should_update(os.path.join(self._directory, source))
@@ -97,12 +104,22 @@ class FileInstaller:
 
 
     def _render_template(self, contents: str) -> str:
-        tm = jinja2.Template(contents)
+        tm = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(self._directory)
+        ).from_string(contents)
+
         rendered = tm.render(**{
             **self._module_config.variables,
             **self._global_config.variables 
         })
         return rendered
 
+    
+    def _ensure_deps_are_met(self):
+        if self._module_name in self._module_config.depends:
+            raise ModuleDependencyError(f"module '{self._module_name}' cannot depend on itself")
 
+        for dep in self._module_config.depends:
+            if dep not in self._global_config.modules:
+                raise ModuleDependencyError(f"module '{self._module_name}' depends on '{dep}', but this is not enabled")
 
