@@ -11,11 +11,12 @@ from powar.file_installer import FileInstaller
 from powar.file_discoverer import FileDiscoverer
 from powar.settings import AppSettings
 from powar.cache import CacheManager
-from powar.util import realpath
+from powar.util import realpath, UserError
 
 from typing import Dict, List, Final
 
-logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+LOGGING_FORMAT = "%(levelname)s: %(message)s"
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"), format=LOGGING_FORMAT)
 logger: logging.Logger = logging.getLogger(__name__)
 
 def main():
@@ -56,30 +57,33 @@ def main():
         if not os.path.isabs(app_settings[d]):
             parser.error(f"{d} needs to be absolute")
 
-    cache_man = CacheManager(app_settings.cache_dir)
+    try:
+        cache_man = CacheManager(app_settings.cache_dir)
 
-    global_config = GlobalConfig.from_yaml_path(
-            app_settings.config_dir, app_settings.global_config_filename)
+        global_config = GlobalConfig.from_yaml_path(
+                app_settings.config_dir, app_settings.global_config_filename)
 
-    file_discoverer = FileDiscoverer(app_settings, cache_man, global_config)
+        file_discoverer = FileDiscoverer(app_settings, cache_man, global_config)
 
-    dirs = file_discoverer.get_all_dirs()
+        dirs = file_discoverer.get_all_dirs()
 
-    # If we only need to list packages
-    if app_settings.list_packages:
-        for d in dirs:
-            config = ModuleConfig.from_yaml_path(d, app_settings.module_config_filename)
-            for p in config.system_packages:
-                print(p)
+        # If we only need to list packages
+        if app_settings.list_packages:
+            for d in dirs:
+                config = ModuleConfig.from_yaml_path(d, app_settings.module_config_filename)
+                for p in config.system_packages:
+                    print(p)
 
-    else:
-        if len(dirs) == 0:
-            logger.info("No new or modified files to install, exiting.")
-            sys.exit()
+        else:
+            if len(dirs) == 0:
+                logger.info("No new or modified files to install, exiting.")
+                sys.exit()
 
-        for d in dirs:
-            config = ModuleConfig.from_yaml_path(d, app_settings.module_config_filename)
-            installer = FileInstaller(config, global_config, d, app_settings, file_discoverer)
-            installer.install_and_exec()
+            for d in dirs:
+                config = ModuleConfig.from_yaml_path(d, app_settings.module_config_filename)
+                installer = FileInstaller(config, global_config, d, app_settings, file_discoverer)
+                installer.install_and_exec()
 
-        cache_man.set_last_run(time.time())
+            cache_man.set_last_run(time.time())
+    except UserError as e:
+        logger.error(" ".join(e.args))

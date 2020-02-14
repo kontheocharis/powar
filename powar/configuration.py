@@ -8,10 +8,7 @@ from dataclasses import dataclass, field
 from abc import ABC
 from typing import Dict, List, Any, TypeVar
 
-from powar.util import Subscriptable
-
-class ConfigParameterError(Exception):
-    pass
+from powar.util import Subscriptable, UserError
 
 T = TypeVar('T')
 @dataclass
@@ -28,7 +25,7 @@ class BaseConfig(Subscriptable, ABC):
 
         for k, v in config_raw.items():
             if k not in config_fields:
-                raise ConfigParameterError(f"field '{k}' unrecognised in {path}")
+                raise UserError(f"field '{k}' unrecognised in {path}")
 
         return cls(**config_raw)
 

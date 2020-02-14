@@ -1,6 +1,9 @@
 install:
   my_awesome_foo : ~/code/powar/test/install_dir/my_awesome_foo_mod
 
+depends:
+  - foo
+
 system_packages:
   - i3wm
   - bash

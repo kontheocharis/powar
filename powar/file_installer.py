@@ -9,18 +9,10 @@ from typing import TextIO, Dict, List
 from powar.configuration import ModuleConfig, GlobalConfig
 from powar.settings import AppSettings
 from powar.file_discoverer import FileDiscoverer
-from powar.util import realpath
+from powar.util import realpath, UserError
+from powar.jinja_ext import ExternalExtension
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-class InstallPathError(Exception):
-    pass
-
-class ModuleDependencyError(Exception):
-    pass
-
-class SourceNotFoundError(Exception):
-    pass
 
 
 class FileInstaller:
@@ -77,17 +69,27 @@ class FileInstaller:
             with open(full_source, 'r') as source_stream:
                 source_contents = source_stream.read()
 
-            rendered = self._render_template(source_contents)
+            rendered, external_installs = self._render_template(source_contents, external_installs=True)
 
-            with open(full_dest, 'w') as dest_stream:
-                try:
-                    if not self._settings.dry_run:
-                        dest_stream.write(rendered)
-                        dest_stream.write("\n")
-                    logger.info(f"Done: {full_source} -> {full_dest}")
+            self._install_file(full_dest, full_source, rendered)
 
-                except IOError as e:
-                    logger.warn(f"Unable to write file {full_dest}, skipping.")
+            for e in external_installs:
+                dest = os.path.join(os.path.dirname(full_dest), e[0])
+                source = full_source + " (external '" + e[0] + "')"
+                content = e[1]
+                self._install_file(dest, source, content)
+
+
+    def _install_file(self, dest: str, src: str, content: str):
+        with open(dest, 'w') as stream:
+            try:
+                if not self._settings.dry_run:
+                    stream.write(content)
+                    stream.write("\n")
+                logger.info(f"Done: {src} -> {dest}")
+
+            except IOError as e:
+                logger.warn(f"Unable to write file {dest}, skipping.")
 
 
     def _run_exec(self, which: str):
@@ -97,7 +99,9 @@ class FileInstaller:
         rendered = self._render_template(self._module_config[which])
 
         if not self._settings.dry_run:
-            result = subprocess.run(rendered, shell=True, check=True, stderr=subprocess.STDOUT)
+            result = subprocess.run(
+                rendered, shell=True, check=True,
+                stderr=subprocess.STDOUT, cwd=self._directory)
 
             if result.stdout:
                 logger.info(result.stdout)
@@ -105,33 +109,45 @@ class FileInstaller:
         logger.info(f"Ran: {which} for {self._module_config_path}")
 
 
-    def _render_template(self, contents: str) -> str:
-        tm = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(self._directory)
-        ).from_string(contents)
+    def _render_template(self, contents: str, external_installs=False):
+        if external_installs:
+            env = jinja2.Environment(
+                loader=jinja2.FileSystemLoader(self._directory),
+                extensions=[ExternalExtension]
+            )
+            env.external_installs = []
+        else:
+            env = jinja2.Environment(
+                loader=jinja2.FileSystemLoader(self._directory),
+            )
+
+        tm = env.from_string(contents)
 
         rendered = tm.render(**{
             **self._module_config.variables,
             **self._global_config.variables 
         })
-        return rendered
 
+        if external_installs:
+            return rendered, env.external_installs
+        else:
+            return rendered
     
     def _ensure_deps_are_met(self) -> None:
         if self._module_name in self._module_config.depends:
-            raise ModuleDependencyError(f"module '{self._module_name}' cannot depend on itself")
+            raise UserError(f"module '{self._module_name}' cannot depend on itself")
 
         for dep in self._module_config.depends:
             if dep not in self._global_config.modules:
-                raise ModuleDependencyError(f"module '{self._module_name}' depends on '{dep}', but this is not enabled")
+                raise UserError(f"module '{self._module_name}' depends on '{dep}', but this is not enabled")
 
     def _ensure_install_valid(self, install: Dict[str, str]) -> None:
         dir_files = os.listdir(self._directory)
 
         for source, dest in install.items():
             if source not in dir_files:
-                raise SourceNotFoundError(f"file '{source}' is not in directory {self._directory}")
+                raise UserError(f"file '{source}' is not in directory {self._directory}")
 
             elif not os.path.isabs(realpath(dest)):
-                raise InstallPathError(
+                raise UserError(
                     f"install path needs to be absolute: {dest} (in {self._module_config_path})")
