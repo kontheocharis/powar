@@ -1,13 +1,12 @@
 import os
 import glob
 import logging
-import sys
+from typing import List
 
 from powar.settings import AppSettings
 from powar.configuration import GlobalConfig
 from powar.cache import CacheManager
 
-from typing import List
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -27,8 +26,8 @@ class FileDiscoverer:
         self._global_config = global_config
 
         global_config_path = os.path.join(
-                self._settings.config_dir,
-                self._settings.global_config_filename)
+            self._settings.config_dir,
+            self._settings.global_config_filename)
 
         self._last_update = self._cache_man.get_last_run()
 

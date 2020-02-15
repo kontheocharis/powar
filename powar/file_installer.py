@@ -66,7 +66,7 @@ class FileInstaller:
             full_source = os.path.join(self._directory, source)
             full_dest = realpath(dest)
 
-            with open(full_source, 'r') as source_stream:
+            with open(full_source, "r") as source_stream:
                 source_contents = source_stream.read()
 
             rendered, external_installs = self._render_template(source_contents, external_installs=True)
@@ -75,13 +75,13 @@ class FileInstaller:
 
             for e in external_installs:
                 dest = os.path.join(os.path.dirname(full_dest), e[0])
-                source = full_source + " (external '" + e[0] + "')"
+                source = f"{full_source} (external {e[0]})"
                 content = e[1]
                 self._install_file(dest, source, content)
 
 
     def _install_file(self, dest: str, src: str, content: str):
-        with open(dest, 'w') as stream:
+        with open(dest, "w") as stream:
             try:
                 if not self._settings.dry_run:
                     stream.write(content)
@@ -112,7 +112,7 @@ class FileInstaller:
     def _render_template(self, contents: str, external_installs=False):
         if external_installs:
             env = jinja2.Environment(
-                loader=jinja2.FileSystemLoader(self._directory),
+                loader=jinja2.FileSystemLoader(self._directory)
                 extensions=[ExternalExtension]
             )
             env.external_installs = []
@@ -121,33 +121,33 @@ class FileInstaller:
                 loader=jinja2.FileSystemLoader(self._directory),
             )
 
-        tm = env.from_string(contents)
+        template = env.from_string(contents)
 
-        rendered = tm.render(**{
+        rendered = template.render(**{
             **self._module_config.variables,
             **self._global_config.variables 
         })
 
         if external_installs:
             return rendered, env.external_installs
-        else:
-            return rendered
+
+        return rendered
     
     def _ensure_deps_are_met(self) -> None:
         if self._module_name in self._module_config.depends:
-            raise UserError(f"module '{self._module_name}' cannot depend on itself")
+            raise UserError(f"module "{self._module_name}" cannot depend on itself")
 
         for dep in self._module_config.depends:
             if dep not in self._global_config.modules:
-                raise UserError(f"module '{self._module_name}' depends on '{dep}', but this is not enabled")
+                raise UserError(f"module \"{self._module_name}\" depends on \"{dep}\", but this is not enabled")
 
     def _ensure_install_valid(self, install: Dict[str, str]) -> None:
         dir_files = os.listdir(self._directory)
 
         for source, dest in install.items():
             if source not in dir_files:
-                raise UserError(f"file '{source}' is not in directory {self._directory}")
+                raise UserError(f"file \"{source}\" is not in directory {self._directory}")
 
-            elif not os.path.isabs(realpath(dest)):
+            if not os.path.isabs(realpath(dest)):
                 raise UserError(
                     f"install path needs to be absolute: {dest} (in {self._module_config_path})")
