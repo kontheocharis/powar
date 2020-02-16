@@ -21,11 +21,9 @@ class BaseConfig(Subscriptable, ABC):
         with open(path, "r") as stream:
             config_raw = yaml.load(stream, Loader=yaml.SafeLoader)
 
-        config_fields = [f.name for f in dataclasses.fields(cls)]
-
-        for k, _ in config_raw.items():
-            if k not in config_fields:
-                raise UserError(f"field "{k}" unrecognised in {path}")
+        for k in config_raw:
+            if k not in (f.name for f in dataclasses.fields(cls)):
+                raise UserError(f"field \"{k}\" unrecognised in {path}")
 
         return cls(**config_raw)
 
@@ -36,8 +34,8 @@ class ModuleConfig(BaseConfig):
     variables: Dict[str, Any] = field(default_factory=dict)
     system_packages: List[str] = field(default_factory=list)
     depends: List[str] = field(default_factory=list)
-    exec_before: str = field(default=None)
-    exec_after: str = field(default=None)
+    exec_before: str = None
+    exec_after: str = None
 
 @dataclass
 class GlobalConfig(BaseConfig):

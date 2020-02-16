@@ -16,6 +16,6 @@ class ExternalExtension(Extension):
             self.call_method("_render", [filename]), [], [], body
         ).set_lineno(lineno)
 
-    def _render(self, install_filename: str, caller):
+    def _render(self, install_filename: str, caller) -> str:
         self.environment.external_installs.append((install_filename, caller()))
         return ""

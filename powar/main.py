@@ -1,7 +1,6 @@
 import argparse
 import os
 import logging
-import sys
 import time
 import dataclasses
 import yaml
@@ -45,9 +44,7 @@ def main():
                         help="only list system packages required to install chosen config files",
                         action="store_true")
 
-    args = parser.parse_args()
-    app_settings = dataclasses.replace(
-        app_settings, **{k: v for k, v in vars(args).items() if v is not None})
+    parser.parse_args(namespace=app_settings)
 
     # resolve $VARIABLES and ~, ensure absolute
     dirs_to_resolve = ["template_dir", "config_dir", "cache_dir"]
@@ -64,25 +61,26 @@ def main():
 
         file_discoverer = FileDiscoverer(app_settings, cache_man, global_config)
 
-        dirs = file_discoverer.get_all_dirs()
+        directories = file_discoverer.get_all_dirs()
 
-        # If we only need to list packages
         if app_settings.list_packages:
-            for d in dirs:
-                config = ModuleConfig.from_yaml_path(d, app_settings.module_config_filename)
-                for p in config.system_packages:
-                    print(p)
+            for directory in directories:
+                config = ModuleConfig.from_yaml_path(directory, app_settings.module_config_filename)
+                for package in config.system_packages:
+                    print(package)
+            return
 
-        else:
-            if len(dirs) == 0:
-                logger.info("No new or modified files to install, exiting.")
-                sys.exit()
+        if len(directories) == 0:
+            logger.info("No new or modified files to install, exiting.")
+            return
 
-            for d in dirs:
-                config = ModuleConfig.from_yaml_path(d, app_settings.module_config_filename)
-                installer = FileInstaller(config, global_config, d, app_settings, file_discoverer)
-                installer.install_and_exec()
+        # Main logic
+        for directory in directories:
+            config = ModuleConfig.from_yaml_path(directory, app_settings.module_config_filename)
+            installer = FileInstaller(config, global_config, directory, app_settings, file_discoverer)
+            installer.install_and_exec()
 
-            cache_man.set_last_run(time.time())
+        cache_man.set_last_run(time.time())
+
     except UserError as e:
-        logger.error(" ".join(e.args))
+        logger.error("\n".join(e.args))

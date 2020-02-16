@@ -1,7 +1,5 @@
 import os
 
-from typing import TextIO
-
 class CacheManager:
     _last_run_path: str
     _last_run_cached: float = None
@@ -20,14 +18,10 @@ class CacheManager:
             last_run_file.seek(0)
             contents = last_run_file.read()
 
-        if not contents:
-            self._last_run_cached = 0.0
-        else:
-            self._last_run_cached = float(contents)
-
+        self._last_run_cached = float(contents) if contents else 0.0
         return self._last_run_cached
 
     def set_last_run(self, last_run: float) -> None:
         with open(self._last_run_path, "w") as last_run_file:
             last_run_file.write(str(last_run))
-            self._last_run_cached = last_run
+        self._last_run_cached = last_run

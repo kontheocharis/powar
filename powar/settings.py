@@ -1,37 +1,30 @@
 import os
-
 from dataclasses import dataclass, field
 
 from powar.util import realpath, Subscriptable
 
 @dataclass
 class AppSettings(Subscriptable):
-    template_dir: str = field(
-        default=os.path.join(
+    template_dir: str = os.path.join(
             os.environ.get("XDG_CONFIG_HOME", "$HOME/.config"),
             "powar-templates")
-    )
 
-    config_dir: str = field(
-        default=os.path.join(
+    config_dir: str = os.path.join(
             os.environ.get("XDG_CONFIG_HOME", "$HOME/.config"),
             "powar-config")
-    )
 
-    cache_dir: str = field(
-        default=os.path.join(
+    cache_dir: str = os.path.join(
             os.environ.get("XDG_DATA_HOME", "$HOME/.local/share"),
             "powar")
-    )
 
-    module_config_filename: str = field(default="powar.yml")
+    module_config_filename: str = "powar.yml"
 
-    global_config_filename: str = field(default='global.yml')
+    global_config_filename: str = "global.yml"
 
-    dry_run: bool = field(default=False)
+    dry_run: bool = False
 
-    first_run: bool = field(default=False)
+    first_run: bool = False
 
-    execute: bool = field(default=True)
+    execute: bool = True
 
-    list_packages: bool = field(default=False)
+    list_packages: bool = False

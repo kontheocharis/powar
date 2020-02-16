@@ -34,34 +34,23 @@ class FileDiscoverer:
         if os.path.getmtime(global_config_path) > self._last_update:
             self._global_config_changed = True
 
-        for mod in self._global_config.modules:
+        for module in self._global_config.modules:
+            module_path = os.path.join(self._settings.template_dir, module)
+            module_config_path = os.path.join(
+                module_path, self._settings.module_config_filename)
 
-            module_path = os.path.join(
-                self._settings.template_dir,
-                mod,
-                self._settings.module_config_filename)
-
-            if os.path.getmtime(module_path) > self._last_update:
-                files = glob.glob(os.path.join(
-                    self._settings.template_dir,
-                    mod) + f"/[!{self._settings.module_config_filename}]*")
+            if os.path.getmtime(module_config_path) > self._last_update:
+                files = (os.path.join(module_path, filename) for filename in os.listdir(module_path) \
+                         if filename != self._settings.module_config_filename)
                 self._files_to_update_cause_module_configs_changed.extend(files)
 
 
     def get_all_dirs(self) -> List[str]:
-        all_files = [
-            os.path.join(self._settings.template_dir, mod) \
-                for mod in self._global_config.modules
-        ]
-
-        return all_files
+        return [os.path.join(self._settings.template_dir, module) \
+                for module in self._global_config.modules]
 
 
     def should_update(self, source: str) -> bool:
-        if self._global_config_changed:
-            return True
-        
-        if source in self._files_to_update_cause_module_configs_changed:
-            return True
-
-        return os.path.getmtime(source) > self._last_update
+        return self._global_config_changed \
+            or source in self._files_to_update_cause_module_configs_changed \
+            or os.path.getmtime(source) > self._last_update
