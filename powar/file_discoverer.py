@@ -1,5 +1,4 @@
 import os
-import glob
 import logging
 from typing import List
 
@@ -20,7 +19,10 @@ class FileDiscoverer:
 
     _last_update: float
 
-    def __init__(self, app_settings: AppSettings, cache_man: CacheManager, global_config: GlobalConfig):
+    def __init__(self,
+                 app_settings: AppSettings,
+                 cache_man: CacheManager,
+                 global_config: GlobalConfig):
         self._settings = app_settings
         self._cache_man = cache_man
         self._global_config = global_config
@@ -40,8 +42,11 @@ class FileDiscoverer:
                 module_path, self._settings.module_config_filename)
 
             if os.path.getmtime(module_config_path) > self._last_update:
-                files = (os.path.join(module_path, filename) for filename in os.listdir(module_path) \
+
+                files = (os.path.join(module_path, filename) \
+                         for filename in os.listdir(module_path) \
                          if filename != self._settings.module_config_filename)
+
                 self._files_to_update_cause_module_configs_changed.extend(files)
 
 

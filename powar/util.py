@@ -11,7 +11,7 @@ class Subscriptable(ABC):
         self.__dict__[key] = value
 
     def get(self, key, default=None):
-        return self.__dict__.get(key)
+        return self.__dict__.get(key, default)
 
 
 class UserError(Exception):

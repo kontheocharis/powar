@@ -1,10 +1,8 @@
 import logging
 import os
-import sys
 import subprocess
+from typing import Tuple, List, Iterator, Union
 import jinja2
-
-from typing import Tuple, Dict, List, Iterator, Union
 
 from powar.configuration import ModuleConfig, GlobalConfig
 from powar.settings import AppSettings
@@ -12,8 +10,8 @@ from powar.file_discoverer import FileDiscoverer
 from powar.util import realpath, UserError
 from powar.jinja_ext import ExternalExtension
 
-logger: logging.Logger = logging.getLogger(__name__)
 
+logger: logging.Logger = logging.getLogger(__name__)
 
 class FileInstaller:
     _module_config: ModuleConfig
@@ -82,7 +80,8 @@ class FileInstaller:
             with open(source, "r") as source_stream:
                 source_contents = source_stream.read()
 
-            rendered, external_installs = self._render_template(source_contents, external_installs=True)
+            rendered, external_installs = self._render_template(
+                source_contents, external_installs=True)
 
             self._install_file(source, dest, content=rendered)
 
@@ -100,8 +99,8 @@ class FileInstaller:
                     stream.write("\n")
                 logger.info(f"Done: {source} -> {dest}")
 
-            except IOError as e:
-                logger.warn(f"Unable to write file {dest}, skipping.")
+            except IOError:
+                logger.warning(f"Unable to write file {dest}, skipping.")
 
 
     def _run_exec(self, which: str) -> None:
@@ -124,9 +123,10 @@ class FileInstaller:
 
     def _render_template(self,
                          contents: str,
-                         external_installs=False) -> Union[str, Tuple[str, List[Tuple[str, str]]]]:
+                         external_installs=False
+                         ) -> Union[str, Tuple[str, List[Tuple[str, str]]]]:
         env = jinja2.Environment(
-                loader=jinja2.FileSystemLoader(self._directory))
+            loader=jinja2.FileSystemLoader(self._directory))
 
         if external_installs:
             env.add_extension(ExternalExtension)
@@ -135,14 +135,14 @@ class FileInstaller:
 
         rendered = template.render({
             **self._module_config.variables,
-            **self._global_config.variables 
+            **self._global_config.variables
         })
 
         if external_installs:
             return rendered, env.external_installs
 
         return rendered
-    
+
     def _ensure_deps_are_met(self) -> None:
         if self._module_name in self._module_config.depends:
             raise UserError(f"module \"{self._module_name}\" cannot depend on itself")
@@ -150,5 +150,5 @@ class FileInstaller:
         missing = set(self._module_config.depends) - set(self._global_config.modules)
 
         if missing:
-            raise UserError(*(f"module \"{self._module_name}\" depends on \"{module}\", but this is not enabled" \
-                             for module in missing))
+            raise UserError(*(f"module \"{self._module_name}\" depends on \"{module}\", " \
+                              f"but this is not enabled" for module in missing))

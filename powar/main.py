@@ -2,8 +2,6 @@ import argparse
 import os
 import logging
 import time
-import dataclasses
-import yaml
 
 from powar.configuration import ModuleConfig, GlobalConfig
 from powar.file_installer import FileInstaller
@@ -48,10 +46,10 @@ def main():
 
     # resolve $VARIABLES and ~, ensure absolute
     dirs_to_resolve = ["template_dir", "config_dir", "cache_dir"]
-    for d in dirs_to_resolve:
-        app_settings[d] = realpath(app_settings[d])
-        if not os.path.isabs(app_settings[d]):
-            parser.error(f"{d} needs to be absolute")
+    for var in dirs_to_resolve:
+        app_settings[var] = realpath(app_settings[var])
+        if not os.path.isabs(app_settings[var]):
+            parser.error(f"{var} needs to be absolute")
 
     try:
         cache_man = CacheManager(app_settings.cache_dir)
@@ -77,10 +75,12 @@ def main():
         # Main logic
         for directory in directories:
             config = ModuleConfig.from_yaml_path(directory, app_settings.module_config_filename)
-            installer = FileInstaller(config, global_config, directory, app_settings, file_discoverer)
+            installer = FileInstaller(
+                config, global_config, directory, app_settings, file_discoverer)
             installer.install_and_exec()
 
         cache_man.set_last_run(time.time())
 
-    except UserError as e:
-        logger.error("\n".join(e.args))
+    except UserError as error:
+        for arg in error.args:
+            logger.error(arg)

@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import os
-import yaml
-import dataclasses
-from dataclasses import dataclass, field
-
+from dataclasses import dataclass, field, fields
 from abc import ABC
 from typing import Dict, List, Any, TypeVar, Type
+import yaml
 
 from powar.util import Subscriptable, UserError
+
 
 T = TypeVar("T")
 @dataclass
@@ -21,9 +20,10 @@ class BaseConfig(Subscriptable, ABC):
         with open(path, "r") as stream:
             config_raw = yaml.load(stream, Loader=yaml.SafeLoader)
 
-        for k in config_raw:
-            if k not in (f.name for f in dataclasses.fields(cls)):
-                raise UserError(f"field \"{k}\" unrecognised in {path}")
+        unrecognised = set(config_raw) - set(f.name for f in fields(cls))
+        if unrecognised:
+            raise UserError(*(f"field \"{k}\" unrecognised in {path}"
+                              for k in unrecognised))
 
         return cls(**config_raw)
 
