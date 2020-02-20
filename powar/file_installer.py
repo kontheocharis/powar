@@ -6,7 +6,7 @@ import jinja2
 
 from powar.configuration import ModuleConfig, GlobalConfig
 from powar.settings import AppSettings
-from powar.file_discoverer import FileDiscoverer
+from powar.module_discoverer import ModuleDiscoverer
 from powar.util import realpath, UserError
 from powar.jinja_ext import ExternalExtension
 
@@ -20,19 +20,19 @@ class FileInstaller:
     _directory: str
     _module_config_path: str
     _module_name: str
-    _file_discoverer: FileDiscoverer
+    _module_discoverer: ModuleDiscoverer
 
     def __init__(self,
                  module_config: ModuleConfig,
                  global_config: GlobalConfig,
                  directory: str,
                  app_settings: AppSettings,
-                 file_discoverer: FileDiscoverer):
+                 module_discoverer: ModuleDiscoverer):
         self._module_config = module_config
         self._global_config = global_config
         self._settings = app_settings
         self._directory = directory
-        self._file_discoverer = file_discoverer
+        self._module_discoverer = module_discoverer
         self._module_config_path = os.path.join(directory, app_settings.module_config_filename)
         self._module_name = os.path.basename(directory)
         assert self._module_name != ''
@@ -70,7 +70,7 @@ class FileInstaller:
             full_source = os.path.join(self._directory, source)
 
             if self._settings.first_run \
-                    or self._file_discoverer.should_update(full_source):
+                    or self._module_discoverer.should_update(full_source):
 
                 yield full_source, real_dest
 

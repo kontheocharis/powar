@@ -9,7 +9,7 @@ from powar.cache import CacheManager
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-class FileDiscoverer:
+class ModuleDiscoverer:
     _settings: AppSettings
     _cache_man: CacheManager
     _global_config: GlobalConfig

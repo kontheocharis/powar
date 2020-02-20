@@ -5,7 +5,7 @@ import time
 
 from powar.configuration import ModuleConfig, GlobalConfig
 from powar.file_installer import FileInstaller
-from powar.file_discoverer import FileDiscoverer
+from powar.module_discoverer import ModuleDiscoverer
 from powar.settings import AppSettings
 from powar.cache import CacheManager
 from powar.util import realpath, UserError
@@ -57,9 +57,9 @@ def main():
         global_config = GlobalConfig.from_yaml_path(
             app_settings.config_dir, app_settings.global_config_filename)
 
-        file_discoverer = FileDiscoverer(app_settings, cache_man, global_config)
+        module_discoverer = ModuleDiscoverer(app_settings, cache_man, global_config)
 
-        directories = file_discoverer.get_all_dirs()
+        directories = module_discoverer.get_all_dirs()
 
         if app_settings.list_packages:
             for directory in directories:
@@ -76,7 +76,7 @@ def main():
         for directory in directories:
             config = ModuleConfig.from_yaml_path(directory, app_settings.module_config_filename)
             installer = FileInstaller(
-                config, global_config, directory, app_settings, file_discoverer)
+                config, global_config, directory, app_settings, module_discoverer)
             installer.install_and_exec()
 
         cache_man.set_last_run(time.time())
