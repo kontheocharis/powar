@@ -3,7 +3,7 @@ import os
 import logging
 import time
 
-from powar.configuration import ModuleConfig, GlobalConfig
+from powar.configuration import ModuleConfig, GlobalConfig, execute_command_fields
 from powar.file_installer import FileInstaller
 from powar.module_discoverer import ModuleDiscoverer
 from powar.settings import AppSettings
@@ -56,6 +56,7 @@ def main():
 
         global_config = GlobalConfig.from_yaml_path(
             app_settings.config_dir, app_settings.global_config_filename)
+        execute_command_fields(cwd=app_settings.config_dir, variables=global_config.variables, value=vars(global_config))
 
         module_discoverer = ModuleDiscoverer(app_settings, cache_man, global_config)
 

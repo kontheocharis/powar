@@ -1,15 +1,11 @@
 import logging
 import os
-import subprocess
 from typing import Tuple, List, Iterator, Union
-import jinja2
 
 from powar.configuration import ModuleConfig, GlobalConfig
 from powar.settings import AppSettings
 from powar.module_discoverer import ModuleDiscoverer
-from powar.util import realpath, UserError
-from powar.jinja_ext import ExternalExtension
-
+from powar.util import realpath, UserError, run_command, render_template
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -47,13 +43,13 @@ class FileInstaller:
             logger.info(f"No files to install/update for {self._directory}")
             return
 
-        if self._settings.execute:
-            self._run_exec("exec_before")
+        if self._settings.execute and self._module_config.exec_before is not None:
+            self._run_exec(self._module_config.exec_before)
 
         self._install_files(files_to_update)
 
-        if self._settings.execute:
-            self._run_exec("exec_after")
+        if self._settings.execute and self._module_config.exec_after is not None:
+            self._run_exec(self._module_config.exec_after)
 
     def _get_files_to_update(self) -> Iterator[Tuple[str, str]]:
         dir_files = os.listdir(self._directory)
@@ -103,45 +99,28 @@ class FileInstaller:
                 logger.warning(f"Unable to write file {dest}, skipping.")
 
 
-    def _run_exec(self, which: str) -> None:
-        command = self._module_config.get(which)
-        if command is None:
-            return
-
+    def _run_exec(self, command: str, config_item=False) -> None:
         rendered = self._render_template(command)
 
-        if not self._settings.dry_run:
-            result = subprocess.run(
-                rendered, shell=True, check=True,
-                stderr=subprocess.STDOUT, cwd=self._directory)
+        if config_item:
+            return run_command(command, self._directory, return_stdout=True)
 
-            if result.stdout:
-                logger.info(result.stdout)
-
-        logger.info(f"Ran: {which} for {self._module_config_path}")
+        elif not self._settings.dry_run:
+            run_command(command, self._directory, return_stdout=False)
+            logger.info(f"Ran: {command} for {self._module_config_path}")
 
 
     def _render_template(self,
                          contents: str,
                          external_installs=False
                          ) -> Union[str, Tuple[str, List[Tuple[str, str]]]]:
-        env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(self._directory))
+        return render_template(
+            contents,
+            variables={**self._module_config.variables,
+                       **self._global_config.variables},
+            directory=self._directory,
+            external_installs=external_installs)
 
-        if external_installs:
-            env.add_extension(ExternalExtension)
-
-        template = env.from_string(contents)
-
-        rendered = template.render({
-            **self._module_config.variables,
-            **self._global_config.variables
-        })
-
-        if external_installs:
-            return rendered, env.external_installs
-
-        return rendered
 
     def _ensure_deps_are_met(self) -> None:
         if self._module_name in self._module_config.depends:
