@@ -3,7 +3,7 @@ import os
 from typing import Tuple, List, Iterator, Union
 
 from powar.configuration import ModuleConfig, GlobalConfig
-from powar.settings import AppSettings
+from powar.settings import AppSettings, AppMode
 from powar.module_discoverer import ModuleDiscoverer
 from powar.util import realpath, UserError, run_command, render_template
 
@@ -65,7 +65,7 @@ class FileInstaller:
 
             full_source = os.path.join(self._directory, source)
 
-            if self._settings.first_run \
+            if self._settings.mode == AppMode.INSTALL \
                     or self._module_discoverer.should_update(full_source):
 
                 yield full_source, real_dest

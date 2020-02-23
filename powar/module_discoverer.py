@@ -37,6 +37,9 @@ class ModuleDiscoverer:
             self._global_config_changed = True
 
         for module in self._global_config.modules:
+            if self._settings.modules_to_consider and module not in self._settings.modules_to_consider:
+                continue
+
             module_path = os.path.join(self._settings.template_dir, module)
             module_config_path = os.path.join(
                 module_path, self._settings.module_config_filename)
@@ -52,7 +55,8 @@ class ModuleDiscoverer:
 
     def get_all_dirs(self) -> List[str]:
         return [os.path.join(self._settings.template_dir, module) \
-                for module in self._global_config.modules]
+                for module in self._global_config.modules \
+                if not self._settings.modules_to_consider or module in self._settings.modules_to_consider ]
 
 
     def should_update(self, source: str) -> bool:
