@@ -25,6 +25,7 @@ class UserError(Exception):
 def realpath(path: str) -> str:
     return os.path.expandvars(os.path.expanduser(path))
 
+
 def run_command(command: str, cwd: str, return_stdout: bool=False) -> Union[str, None]:
     result = subprocess.run(command, shell=True, check=True, cwd=cwd, capture_output=True)
 
@@ -33,6 +34,7 @@ def run_command(command: str, cwd: str, return_stdout: bool=False) -> Union[str,
 
     if result.stdout:
         logger.info(result.stdout)
+
 
 def render_template(
         contents: str,

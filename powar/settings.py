@@ -11,6 +11,8 @@ class AppMode(Enum):
     INSTALL = 0
     UPDATE = 1
     LIST_PACKAGES = 2
+    NEW_MODULE = 3
+    INIT = 4
 
 class AppLogLevel(Enum):
     NORMAL = 0
@@ -25,8 +27,13 @@ class AppLogLevel(Enum):
         elif self == AppLogLevel.QUIET:
             return CRITICAL
 
+
 @dataclass
 class AppSettings(Subscriptable):
+    data_path: str = os.path.join(os.path.dirname(__file__), "../data")
+    module_config_template_filename: str = "module-template.yaml"
+    global_config_template_filename: str = "global-template.yaml"
+
     template_dir: str = os.path.join(
         os.environ.get("XDG_CONFIG_HOME", "$HOME/.config"),
         "powar-templates")
@@ -49,3 +56,10 @@ class AppSettings(Subscriptable):
     execute: bool = True
 
     mode: AppMode = None
+
+    new_module_name: str = None
+    enable_new_module: bool = False
+
+    init: bool = False
+
+    switch_to_root: bool = False

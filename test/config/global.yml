@@ -1,7 +1,0 @@
-modules:
-  - foo
-
-variables:
-  lorem: ipsum
-  dolor: sit
-  amet: consetetur
