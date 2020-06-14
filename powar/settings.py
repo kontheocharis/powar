@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass, field
-from typing import List, Literal
+from typing import List, Optional
 from enum import Enum
 from logging import CRITICAL, WARNING, INFO
 
@@ -22,10 +22,11 @@ class AppLogLevel(Enum):
     def into_logging_level(self) -> int:
         if self == AppLogLevel.NORMAL:
             return WARNING
-        elif self == AppLogLevel.VERBOSE:
+        if self == AppLogLevel.VERBOSE:
             return INFO
-        elif self == AppLogLevel.QUIET:
+        if self == AppLogLevel.QUIET:
             return CRITICAL
+        assert False
 
 
 @dataclass
@@ -55,9 +56,9 @@ class AppSettings(Subscriptable):
     dry_run: bool = False
     execute: bool = True
 
-    mode: AppMode = None
+    mode: Optional[AppMode] = None
 
-    new_module_name: str = None
+    new_module_name: Optional[str] = None
     enable_new_module: bool = False
 
     init: bool = False

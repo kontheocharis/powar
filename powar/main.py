@@ -5,7 +5,7 @@ import time
 import shutil
 import sys
 import subprocess
-from typing import Iterator
+from typing import cast, Iterable
 
 from powar.configuration import ModuleConfig, GlobalConfig, execute_command_fields
 from powar.file_installer import FileInstaller
@@ -14,11 +14,12 @@ from powar.settings import AppSettings, AppMode, AppLogLevel
 from powar.cache import CacheManager
 from powar.util import realpath, UserError
 
-
 LOGGING_FORMAT = "%(levelname)s: %(message)s"
+logger: logging.Logger
+
 ROOT_FLAGS = ("--root", "-r")
 
-def parse_args_into(app_settings: AppSettings) -> None:
+def parse_args_into(app_settings: AppSettings) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--dry-run", dest="dry_run",
@@ -71,12 +72,12 @@ def parse_args_into(app_settings: AppSettings) -> None:
 
     # New module mode
     parser_new = subparsers.add_parser("new",
-                                        help="create a new powar module")
+                                       help="create a new powar module")
     parser_new.set_defaults(mode=AppMode.NEW_MODULE)
     parser_new.add_argument("new_module_name", metavar="MODULE_NAME",
-                             help="name of the new module to be created")
+                            help="name of the new module to be created")
     parser_new.add_argument("--enable", dest="enable_new_module", action="store_true",
-                                help="do not execute any exec-* fields in modules")
+                            help="do not execute any exec-* fields in modules")
 
     # Init mode
     parser_init = subparsers.add_parser("init",
@@ -84,6 +85,7 @@ def parse_args_into(app_settings: AppSettings) -> None:
     parser_init.set_defaults(mode=AppMode.INIT)
 
     parser.parse_args(namespace=app_settings)
+    return parser
 
 
 def run_init(app_settings: AppSettings) -> None:
@@ -113,7 +115,7 @@ def run_new_module(app_settings: AppSettings) -> None:
     if not os.path.exists(app_settings.template_dir):
         raise UserError(f"{app_settings.template_dir} doesn't exist.")
 
-    module_dir = os.path.join(app_settings.template_dir, app_settings.new_module_name)
+    module_dir = os.path.join(app_settings.template_dir, cast(str, app_settings.new_module_name))
     try:
         os.makedirs(module_dir)
     except FileExistsError:
@@ -130,7 +132,7 @@ def run_new_module(app_settings: AppSettings) -> None:
     print(f"{module_config_path} created.")
 
 
-def run_list_packages(app_settings: AppSettings, module_directories: Iterator[str]) -> None:
+def run_list_packages(app_settings: AppSettings, module_directories: Iterable[str]) -> None:
     for directory in module_directories:
         config = ModuleConfig.from_yaml_path(directory, app_settings.module_config_filename)
         for package in config.system_packages:
@@ -138,7 +140,7 @@ def run_list_packages(app_settings: AppSettings, module_directories: Iterator[st
 
 
 def run_install_or_update(app_settings: AppSettings,
-                          module_directories: Iterator[str],
+                          module_directories: Iterable[str],
                           cache_man: CacheManager,
                           global_config: GlobalConfig,
                           module_discoverer: ModuleDiscoverer) -> None:
@@ -153,17 +155,11 @@ def run_install_or_update(app_settings: AppSettings,
 
 def main() -> None:
     app_settings = AppSettings()
-    parse_args_into(app_settings)
-
-    # Root mode
-    if app_settings.switch_to_root:
-        subprocess.call(["sudo", "-E", sys.executable,
-                         *(a for a in sys.argv if a not in ROOT_FLAGS)])
-        sys.exit()
+    parser = parse_args_into(app_settings)
 
     # set logging level from arguments
     logging.basicConfig(level=app_settings.log_level.into_logging_level(), format=LOGGING_FORMAT)
-    logger: logging.Logger = logging.getLogger(__name__)
+    logger = logging.getLogger(__name__)
 
     # resolve $VARIABLES and ~, ensure absolute
     dirs_to_resolve = ("template_dir", "config_dir", "cache_dir")
@@ -196,14 +192,15 @@ def main() -> None:
         if app_settings.mode == AppMode.INSTALL or app_settings.mode == AppMode.UPDATE:
             if not directories:
                 return logger.info("No new or modified files to install, exiting.")
-            else:
-                return run_install_or_update(
-                    app_settings,
-                    directories,
-                    cache_man,
-                    global_config,
-                    module_discoverer)
+
+            return run_install_or_update(
+                app_settings,
+                directories,
+                cache_man,
+                global_config,
+                module_discoverer)
 
     except UserError as error:
         for arg in error.args:
             logger.error(arg)
+    return None

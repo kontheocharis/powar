@@ -1,8 +1,10 @@
 import os
 
+from typing import Optional
+
 class CacheManager:
     _last_run_path: str
-    _last_run_cached: float = None
+    _last_run_cached: Optional[float] = None
     _cache_path: str
 
     def __init__(self, cache_path: str):

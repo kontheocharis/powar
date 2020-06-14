@@ -19,10 +19,7 @@ class ModuleDiscoverer:
 
     _last_update: float
 
-    def __init__(self,
-                 app_settings: AppSettings,
-                 cache_man: CacheManager,
-                 global_config: GlobalConfig):
+    def __init__(self, app_settings: AppSettings, cache_man: CacheManager, global_config: GlobalConfig):
         self._settings = app_settings
         self._cache_man = cache_man
         self._global_config = global_config
@@ -41,8 +38,7 @@ class ModuleDiscoverer:
                 continue
 
             module_path = os.path.join(self._settings.template_dir, module)
-            module_config_path = os.path.join(
-                module_path, self._settings.module_config_filename)
+            module_config_path = os.path.join(module_path, self._settings.module_config_filename)
 
             if os.path.getmtime(module_config_path) > self._last_update:
 
@@ -56,7 +52,7 @@ class ModuleDiscoverer:
     def get_all_dirs(self) -> List[str]:
         return [os.path.join(self._settings.template_dir, module) \
                 for module in self._global_config.modules \
-                if not self._settings.modules_to_consider or module in self._settings.modules_to_consider ]
+                if not self._settings.modules_to_consider or module in self._settings.modules_to_consider]
 
 
     def should_update(self, source: str) -> bool:
