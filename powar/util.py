@@ -1,13 +1,15 @@
 import os
+import sys
 import logging
-from typing import Union, Any, List, Dict, Tuple, Optional, cast
+import yaml
+from typing import Union, Any, List, Dict, Tuple, Optional, cast, Iterator
 from abc import ABC
 import subprocess
 
 import jinja2
-from powar.jinja_ext import ExternalExtension
 
 logger: logging.Logger = logging.getLogger(__name__)
+
 
 class Subscriptable(ABC):
     def __getitem__(self, key):
@@ -28,11 +30,12 @@ def realpath(path: str) -> str:
     return os.path.expandvars(os.path.expanduser(path))
 
 
-def run_command(command: str,
-                cwd: str,
-                return_stdout: bool = False
-                ) -> Optional[str]:
-    result = subprocess.run(command, shell=True, check=True, cwd=cwd, capture_output=True)
+def run_command(command: str, cwd: str, return_stdout: bool = False) -> str:
+    result = subprocess.run(command,
+                            shell=True,
+                            check=True,
+                            cwd=cwd,
+                            capture_output=True)
 
     if return_stdout:
         return result.stdout.decode()
@@ -40,28 +43,47 @@ def run_command(command: str,
     if result.stdout:
         logger.info(result.stdout)
 
-    return None
+    return ''
 
 
-def render_template(contents: str,
-                    variables: Dict[str, Any],
-                    directory: str = None,
-                    external_installs: bool = False
-                    ) -> Union[str, Tuple[str, List[Tuple[str, str]]]]:
-    class EnvironmentWithExternalInstalls(jinja2.Environment):
-        external_installs: List[Tuple[str, str]]
-
+def render_template(
+    contents: str,
+    variables: Dict[str, Any],
+    directory: str = None,
+) -> str:
     env = jinja2.Environment(loader=jinja2.FileSystemLoader(directory)) \
         if directory is not None else jinja2.Environment()
-
-    if external_installs:
-        env.add_extension(ExternalExtension)
-
     template = env.from_string(contents)
-
     rendered = template.render(variables)
-
-    if external_installs:
-        return rendered, cast(EnvironmentWithExternalInstalls, env).external_installs
-
     return rendered
+
+
+def saved_sys_properties() -> Iterator[None]:
+    """Save various sys properties such as sys.path and sys.modules."""
+    old_path = sys.path.copy()
+    old_modules = sys.modules.copy()
+
+    try:
+        yield
+    finally:
+        sys.path = old_path
+        for module in set(sys.modules).difference(old_modules):
+            del sys.modules[module]
+
+
+def read_header(path: str) -> Dict[Any, Any]:
+    header_lines = []
+    with open(path, 'r') as f:
+        for line in f:
+            if line == '#\n':
+                header_lines.append('\n')
+            if line.startswith('# '):
+                header_lines.append(line[2:])
+            else:
+                break
+    header = yaml.safe_load(''.join(header_lines))
+    if not header:
+        header = {}
+    if not isinstance(header, dict):
+        raise UserError(f"invalid YAML header for {path}")
+    return header

@@ -9,10 +9,10 @@ from powar.util import Subscriptable
 
 class AppMode(Enum):
     INSTALL = 0
-    UPDATE = 1
-    LIST_PACKAGES = 2
-    NEW_MODULE = 3
-    INIT = 4
+    LIST_PACKAGES = 1
+    NEW_MODULE = 2
+    INIT = 3
+
 
 class AppLogLevel(Enum):
     NORMAL = 0
@@ -32,34 +32,29 @@ class AppLogLevel(Enum):
 @dataclass
 class AppSettings(Subscriptable):
     data_path: str = os.path.join(os.path.dirname(__file__), "../data")
-    module_config_template_filename: str = "module-template.yaml"
-    global_config_template_filename: str = "global-template.yaml"
+    module_config_template_filename: str = "module-template.py"
+    global_config_template_filename: str = "global-template.py"
 
     template_dir: str = os.path.join(
-        os.environ.get("XDG_CONFIG_HOME", "$HOME/.config"),
-        "powar-templates")
+        os.environ.get("XDG_CONFIG_HOME", "$HOME/.config"), "powar-templates")
 
     config_dir: str = os.path.join(
-        os.environ.get("XDG_CONFIG_HOME", "$HOME/.config"),
-        "powar-config")
+        os.environ.get("XDG_CONFIG_HOME", "$HOME/.config"), "powar-config")
 
     cache_dir: str = os.path.join(
-        os.environ.get("XDG_DATA_HOME", "$HOME/.local/share"),
-        "powar")
+        os.environ.get("XDG_DATA_HOME", "$HOME/.local/share"), "powar")
 
-    module_config_filename: str = "powar.yml"
-    global_config_filename: str = "global.yml"
+    module_config_filename: str = "powar.py"
+    global_config_filename: str = "global.py"
     modules_to_consider: List[str] = field(default_factory=list)
 
     log_level: AppLogLevel = AppLogLevel.NORMAL
 
     dry_run: bool = False
-    execute: bool = True
 
     mode: Optional[AppMode] = None
 
     new_module_name: Optional[str] = None
-    enable_new_module: bool = False
 
     init: bool = False
 
