@@ -58,9 +58,9 @@ def run_command(
     retcode = process.poll()
     if retcode:
         try:
-            print(e.stderr.decode())
+            print(stderr.decode())
         except UnicodeDecodeError:
-            print(e.stderr)
+            print(stderr)
         raise subprocess.CalledProcessError(
             retcode,
             process.args,
