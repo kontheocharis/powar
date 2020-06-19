@@ -26,11 +26,19 @@ class GlobalConfigApi:
         self.opts = opts
         self._man = man
 
-    def execute(self, command: str, stdin=Optional[str]) -> str:
+    def execute(
+        self,
+        command: str,
+        stdin=Optional[str],
+        return_stdout=False,
+        decode_stdout=True,
+        wait=True,
+    ) -> Optional[Union[str, bytes]]:
         '''
         Run command and return stdout if any
         '''
-        return self._man.execute_command(command, stdin)
+        return self._man.execute_command(command, stdin, return_stdout,
+                                         decode_stdout, wait)
 
 
 class GlobalConfigManager:
@@ -66,20 +74,26 @@ class GlobalConfigManager:
 
         code = compile(source, self._config_path, 'exec')
 
-        # Save and restore sys variables
-        # with saved_sys_properties():
-        if self._directory not in sys.path:
-            sys.path.insert(0, self._directory)
-        exec(code, module.__dict__)
+        # Save and restore sys variables and cwd
+        old_cwd = os.getcwd()
+        with saved_sys_properties():
+            if self._directory not in sys.path:
+                sys.path.insert(0, self._directory)
+            os.chdir(self._directory)
+            exec(code, module.__dict__)
+            os.chdir(old_cwd)
 
         self._global_config.modules = self._get_modules()
         return self._global_config
 
-    def execute_command(self, command: str, stdin: Optional[str]) -> str:
-        stdout = ''
+    def execute_command(self, command: str, stdin: Optional[str],
+                        return_stdout: bool, decode_stdout: bool,
+                        wait: bool) -> Optional[Union[str, bytes]]:
+        stdout = None
         if not self._settings.dry_run:
-            stdout = run_command(command, self._directory, return_stdout=True)
-        logger.info(f"Ran: {command} in global config")
+            stdout = run_command(command, self._directory, return_stdout,
+                                 decode_stdout, wait)
+        logger.info(f"Ran: {command} for {self._config_path}")
         return stdout
 
     def _read_header(self) -> Dict[Any, Any]:

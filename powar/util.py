@@ -1,8 +1,9 @@
 import os
 import sys
 import logging
+import contextlib
 import yaml
-from typing import Union, Any, List, Dict, Tuple, Optional, cast, Iterator
+from typing import Union, Any, List, Dict, Tuple, Optional, cast, Iterator, Iterable
 from abc import ABC
 import subprocess
 
@@ -30,20 +31,47 @@ def realpath(path: str) -> str:
     return os.path.expandvars(os.path.expanduser(path))
 
 
-def run_command(command: str, cwd: str, return_stdout: bool = False) -> str:
-    result = subprocess.run(command,
-                            shell=True,
-                            check=True,
-                            cwd=cwd,
-                            capture_output=True)
+def run_command(
+    command: str,
+    cwd: str,
+    stdin: Optional[bytes] = None,
+    decode_stdout=True,
+    wait=True,
+) -> Optional[Union[str, bytes]]:
+    popenargs = {
+        'args': command,
+        'shell': True,
+        'stdin': subprocess.PIPE,
+        'stdout': subprocess.PIPE,
+        'stderr': subprocess.PIPE,
+        'cwd': cwd,
+    }
 
-    if return_stdout:
-        return result.stdout.decode()
+    process = subprocess.Popen(**popenargs)
+    if not wait:
+        return
+    try:
+        stdout, stderr = process.communicate(stdin)
+    except:
+        process.kill()
+        raise
+    retcode = process.poll()
+    if retcode:
+        try:
+            print(e.stderr.decode())
+        except UnicodeDecodeError:
+            print(e.stderr)
+        raise subprocess.CalledProcessError(
+            retcode,
+            process.args,
+            output=stdout,
+            stderr=stderr,
+        )
 
-    if result.stdout:
-        logger.info(result.stdout)
-
-    return ''
+    if decode_stdout:
+        return stdout.decode()
+    else:
+        return stdout
 
 
 def render_template(
@@ -58,6 +86,7 @@ def render_template(
     return rendered
 
 
+@contextlib.contextmanager
 def saved_sys_properties() -> Iterator[None]:
     """Save various sys properties such as sys.path and sys.modules."""
     old_path = sys.path.copy()

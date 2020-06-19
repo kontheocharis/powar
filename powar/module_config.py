@@ -27,8 +27,10 @@ class ModuleConfigApi:
         self.local = local
         self._man = man
 
-    def install(self, entries: Union[Set[Tuple[str, str]], Dict[str,
-                                                                str]]) -> None:
+    def install(
+        self,
+        entries: Union[Set[Tuple[str, str]], Dict[str, str]],
+    ) -> None:
         '''
         Install files
         '''
@@ -40,11 +42,34 @@ class ModuleConfigApi:
             raise TypeError(
                 f"invalid argument type to install: {type(entries)}")
 
-    def execute(self, command: str, stdin=Optional[str]) -> str:
+    def install_bin(
+        self,
+        entries: Union[Set[Tuple[str, str]], Dict[str, str]],
+    ) -> None:
+        '''
+        Install files
+        '''
+        if isinstance(entries, set):
+            self._man.install_entries(entries, binary=True)
+        elif isinstance(entries, dict):
+            self._man.install_entries(entries.items(), binary=True)
+        else:
+            raise TypeError(
+                f"invalid argument type to install_bin: {type(entries)}")
+
+    def execute(
+        self,
+        command: str,
+        stdin=Optional[str],
+        return_stdout=False,
+        decode_stdout=True,
+        wait=True,
+    ) -> Optional[Union[str, bytes]]:
         '''
         Run command and return stdout if any
         '''
-        return self._man.execute_command(command, stdin)
+        return self._man.execute_command(command, stdin, return_stdout,
+                                         decode_stdout, wait)
 
     def render(self, x: str) -> str:
         '''
@@ -98,30 +123,44 @@ class ModuleConfigManager:
 
         code = compile(source, self._config_path, 'exec')
 
-        # Save and restore sys variables
-        # with saved_sys_properties():
-        if self._directory not in sys.path:
-            sys.path.insert(0, self._directory)
-        exec(code, module.__dict__)
+        # Save and restore sys variables and cwd
+        old_cwd = os.getcwd()
+        with saved_sys_properties():
+            if self._directory not in sys.path:
+                sys.path.insert(0, self._directory)
+            os.chdir(self._directory)
+            exec(code, module.__dict__)
+            os.chdir(old_cwd)
 
     def get_system_packages(self) -> List[str]:
         header = self._read_header()
         return header.get('system_packages', [])
 
-    def install_entries(self, entries: Iterable[Tuple[str, str]]) -> None:
+    def install_entries(self,
+                        entries: Iterable[Tuple[str, str]],
+                        binary=False) -> None:
         dir_files = os.listdir(self._directory)
 
-        for src, dest in entries:
-            with open(os.path.join(self._directory, src), 'r') as f:
-                src_contents = f.read()
-            rendered = self.render_template(src_contents)
-            self._install_file(src, dest, content=rendered)
+        if binary:
+            for src, dest in entries:
+                self._install_bin(src, dest)
+        else:
+            for src, dest in entries:
+                with open(os.path.join(self._directory, src), 'r') as f:
+                    src_contents = f.read()
+                rendered = self.render_template(src_contents)
+                self._install_file(src, dest, content=rendered)
 
-    def execute_command(self, command: str, stdin: Optional[str]) -> str:
-        stdout = ''
+    def execute_command(self, command: str, stdin: Optional[str],
+                        return_stdout: bool, decode_stdout: bool,
+                        wait: bool) -> Optional[Union[str, bytes]]:
+        stdout = None
         if not self._settings.dry_run:
-            stdout = run_command(command, self._directory, return_stdout=True)
-        logger.info(f"Ran: {command} for {self._config_path}")
+            stdout = run_command(command, self._directory, return_stdout,
+                                 decode_stdout, wait)
+        logger.info(
+            f"Ran{'' if wait else ' (in bg)'}: {command} for {self._config_path}"
+        )
         return stdout
 
     def _ensure_depends_are_met(self) -> None:
@@ -161,26 +200,49 @@ class ModuleConfigManager:
             self._header = read_header(self._config_path)
         return self._header
 
-    def _install_file(self, src: str, dest: str, content: str) -> None:
-        dest = realpath(dest)
+    def _can_install_without_root(self, dest: str) -> bool:
         try:
             owner_of_dest = getpwuid(os.stat(dest).st_uid).pw_name
         except FileNotFoundError:
             owner_of_dest = getpwuid(os.stat(
                 os.path.dirname(dest)).st_uid).pw_name
 
-        command = ["tee", dest]
-
         if not owner_of_dest == self._current_user:
+            return False
+        return True
+
+    def _install_file(self, src: str, dest: str, content: str) -> None:
+        dest = realpath(dest)
+
+        command = ['tee', dest]
+
+        if not self._can_install_without_root(dest):
             if not self._settings.switch_to_root:
                 logger.warn(
                     f"installing at \"{dest}\" requires to be in root mode, skipping"
                 )
-            command = ["sudo", "-E", *command]
+                return
+            command = ['sudo', '-E', *command]
 
         if not self._settings.dry_run:
-            subprocess.run(command,
-                           input=str.encode(content + '\n'),
-                           check=True,
-                           capture_output=True)
+            run_command(' '.join(command),
+                        self._directory,
+                        stdin=str.encode(content + '\n'))
         logger.info(f"Done: {src} -> {dest}")
+
+    def _install_bin(self, src: str, dest: str) -> None:
+        dest = realpath(dest)
+
+        command = ['cp', src, dest]
+
+        if not self._can_install_without_root(dest):
+            if not self._settings.switch_to_root:
+                logger.warn(
+                    f"installing at \"{dest}\" requires to be in root mode, skipping"
+                )
+                return
+            command = ['sudo', '-E', *command]
+
+        if not self._settings.dry_run:
+            run_command(' '.join(command), self._directory)
+        logger.info(f"Done (bin): {src} -> {dest}")
