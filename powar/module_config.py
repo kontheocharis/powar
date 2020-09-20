@@ -18,9 +18,9 @@ class ModuleConfigApi:
     opts: Dict[Any, Any]
     local: Dict[Any, Any]
 
-    _man: ModuleConfigManager
+    _man: 'ModuleConfigManager'
 
-    def __init__(self, man: ModuleConfigManager, opts: Dict[Any, Any],
+    def __init__(self, man: 'ModuleConfigManager', opts: Dict[Any, Any],
                  local: Dict[Any, Any]):
         self.opts = opts
         self.local = local

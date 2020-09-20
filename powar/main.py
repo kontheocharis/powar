@@ -40,8 +40,7 @@ def parse_args_into(app_settings: AppSettings) -> argparse.ArgumentParser:
         dest="switch_to_root",
         action="store_true",
         help=
-        "run powar in sudo mode to be able to install files in places outside $HOME"
-    )
+        "run powar in sudo mode to be able to install files in places outside $HOME")
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-q",
@@ -58,8 +57,7 @@ def parse_args_into(app_settings: AppSettings) -> argparse.ArgumentParser:
                        const=AppLogLevel.VERBOSE)
 
     subparsers = parser.add_subparsers(help="mode to use",
-                                       dest="mode command",
-                                       required=True)
+                                       dest="mode command")
 
     # Install mode
     parser_install = subparsers.add_parser(
