@@ -1,9 +1,8 @@
-from __future__ import annotations
 import logging
 import types
 import os
 import sys
-from typing import Iterator, Optional, Set, List, Dict, Any
+from typing import Iterator, Optional, Set, List, Dict, Any, Union
 from getpass import getuser
 
 from powar.settings import AppSettings
@@ -20,9 +19,9 @@ class GlobalConfig:
 class GlobalConfigApi:
     opts: Dict[Any, Any]
 
-    _man: GlobalConfigManager
+    _man: 'GlobalConfigManager'
 
-    def __init__(self, man: GlobalConfigManager, opts: Dict[Any, Any]):
+    def __init__(self, man: 'GlobalConfigManager', opts: Dict[Any, Any]):
         self.opts = opts
         self._man = man
 
