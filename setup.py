@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="powar",
-    version="1.0.3",
+    version="1.0.4",
     author="Constantine Theocharis",
     author_email="kontheocharis@gmail.com",
     description="A configuration manager unlike any other!",
