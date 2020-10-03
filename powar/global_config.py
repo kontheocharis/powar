@@ -2,7 +2,7 @@ import logging
 import types
 import os
 import sys
-from typing import Iterator, Optional, Set, List, Dict, Any, Union, Tuple
+from typing import Iterable, Optional, Set, List, Dict, Any, Union, Tuple
 from getpass import getuser
 
 from powar.settings import AppSettings
@@ -25,6 +25,9 @@ class GlobalConfigApi:
         self.opts = opts
         self._man = man
 
+    def modules(self, *modules: List[str]):
+        self._man.set_modules(modules)
+
     def execute(
         self,
         command: str,
@@ -45,6 +48,7 @@ class GlobalConfigManager:
     _directory: str
     _settings: AppSettings
     _api: GlobalConfigApi
+    _modules: List = []
 
     _global_config: GlobalConfig = GlobalConfig()
 
@@ -83,7 +87,7 @@ class GlobalConfigManager:
             exec(code, module.__dict__)
             os.chdir(old_cwd)
 
-        self._global_config.modules = self._get_modules()
+        self._global_config.modules = self._modules
         return self._global_config
 
     def execute_command(self, command: str, stdin: Optional[str],
@@ -100,11 +104,5 @@ class GlobalConfigManager:
     def read_file(self, filename: str, as_bytes: bool) -> Union[str, bytes]:
         return open(realpath(filename), 'rb' if as_bytes else 'r').read()
 
-    def _read_header(self) -> Dict[Any, Any]:
-        if self._header is None:
-            self._header = read_header(self._config_path)
-        return self._header
-
-    def _get_modules(self) -> List[str]:
-        header = self._read_header()
-        return header.get('modules', [])
+    def set_modules(self, modules: List[str]):
+        self._modules = modules
