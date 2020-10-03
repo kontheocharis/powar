@@ -9,9 +9,8 @@ from powar.util import Subscriptable
 
 class AppMode(Enum):
     INSTALL = 0
-    LIST_PACKAGES = 1
-    NEW_MODULE = 2
-    INIT = 3
+    NEW_MODULE = 1
+    INIT = 2
 
 
 class AppLogLevel(Enum):

@@ -9,7 +9,7 @@ import subprocess
 
 from powar.global_config import GlobalConfig
 from powar.settings import AppSettings
-from powar.util import saved_sys_properties, render_template, realpath, read_header, run_command, UserError
+from powar.util import saved_sys_properties, render_template, realpath, read_header, run_command, UserError, RunCommandResult
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -26,6 +26,9 @@ class ModuleConfigApi:
         self.local = local
         self._man = man
 
+    def depends(self, entries: Iterable[str]) -> None:
+        self.ensure_depends_are_met(set(entries))
+
     def install(
         self,
         entries: Union[Set[Tuple[str, str]], Dict[str, str]],
@@ -40,6 +43,20 @@ class ModuleConfigApi:
         else:
             raise TypeError(
                 f"invalid argument type to install: {type(entries)}")
+
+    def link(
+        self,
+        entries: Union[Set[Tuple[str, str]], Dict[str, str]],
+    ) -> None:
+        '''
+        Install files
+        '''
+        if isinstance(entries, set):
+            self._man.link_entries(entries)
+        elif isinstance(entries, dict):
+            self._man.link_entries(entries.items())
+        else:
+            raise TypeError(f"invalid argument type to link: {type(entries)}")
 
     def install_bin(
         self,
@@ -59,16 +76,20 @@ class ModuleConfigApi:
     def execute(
         self,
         command: str,
-        stdin=Optional[str],
-        return_stdout=False,
+        stdin: Optional[str] = None,
         decode_stdout=True,
         wait=True,
-    ) -> Optional[Union[str, bytes]]:
+    ) -> Union[int, Tuple[Union[str, bytes], int]]:
         '''
         Run command and return stdout if any
         '''
-        return self._man.execute_command(command, stdin, return_stdout,
-                                         decode_stdout, wait)
+        return self._man.execute_command(command, stdin, decode_stdout, wait)
+
+    def has(self, module: str) -> bool:
+        return self._man.has_module(module)
+
+    def read(self, filename: str, as_bytes=False) -> Union[str, bytes]:
+        return self._man.read_file(filename, as_bytes)
 
     def render(self, x: str) -> str:
         '''
@@ -90,7 +111,6 @@ class ModuleConfigManager:
 
     _module_name: str
     _config_path: str
-    _header: Optional[Dict[Any, Any]] = None
 
     def __init__(
         self,
@@ -108,9 +128,10 @@ class ModuleConfigManager:
         self._config_path = os.path.join(self._directory,
                                          app_settings.module_config_filename)
 
-    def run(self) -> None:
-        self._ensure_depends_are_met()
+    def has_module(self, module: str) -> bool:
+        return module in self._global_config.modules
 
+    def run(self) -> None:
         api = ModuleConfigApi(self, self._opts, self._local)
 
         module = types.ModuleType('powar')
@@ -131,9 +152,18 @@ class ModuleConfigManager:
             exec(code, module.__dict__)
             os.chdir(old_cwd)
 
-    def get_system_packages(self) -> List[str]:
-        header = self._read_header()
-        return header.get('system_packages', [])
+    def ensure_depends_are_met(self, depends: Set[str]) -> None:
+        if self._module_name in depends:
+            raise UserError(
+                f"module \"{self._module_name}\" cannot depend on itself")
+
+        missing = depends - set(self._global_config.modules)
+
+        if missing:
+            raise UserError(*(
+                f"module \"{self._module_name}\" depends on \"{module}\", " \
+                f"but this is not enabled" for module in missing
+            ))
 
     def install_entries(self,
                         entries: Iterable[Tuple[str, str]],
@@ -150,36 +180,32 @@ class ModuleConfigManager:
                 rendered = self.render_template(src_contents)
                 self._install_file(src, dest, content=rendered)
 
+    def link_entries(
+        self,
+        entries: Iterable[Tuple[str, str]],
+    ) -> None:
+        for src, dest in entries:
+            if self._settings.dry_run:
+                dest_dir = os.path.dirname(dest)
+                dest_file = os.path.basename(dest)
+                run_command(f'mkdir -p {dest_dir}')
+                run_command(
+                    f'cd {dest_dir} && ln -s {realpath(src)} ./{dest_file}')
+            logger.info(f"Linked: {src} -> {dest}")
+
     def execute_command(self, command: str, stdin: Optional[str],
-                        return_stdout: bool, decode_stdout: bool,
-                        wait: bool) -> Optional[Union[str, bytes]]:
-        stdout = None
+                        decode_stdout: bool, wait: bool) -> RunCommandResult:
+        result = RunCommandResult(stdout=None, code=0)
         if not self._settings.dry_run:
-            stdout = run_command(command, self._directory, return_stdout,
+            result = run_command(command, self._directory, stdin,
                                  decode_stdout, wait)
         logger.info(
             f"Ran{'' if wait else ' (in bg)'}: {command} for {self._config_path}"
         )
-        return stdout
+        return result
 
-    def _ensure_depends_are_met(self) -> None:
-        header = self._read_header()
-
-        depends = header.get('depends')
-        if not depends:
-            return
-
-        if self._module_name in depends:
-            raise UserError(
-                f"module \"{self._module_name}\" cannot depend on itself")
-
-        missing = depends - set(self._global_config.modules)
-
-        if missing:
-            raise UserError(*(
-                f"module \"{self._module_name}\" depends on \"{module}\", " \
-                f"but this is not enabled" for module in missing
-            ))
+    def read_file(self, filename: str, as_bytes: bool) -> Union[str, bytes]:
+        return open(realpath(filename), 'rb' if as_bytes else 'r').read()
 
     def render_template(
         self,
@@ -194,11 +220,6 @@ class ModuleConfigManager:
             directory=self._directory,
         )
 
-    def _read_header(self) -> Dict[Any, Any]:
-        if self._header is None:
-            self._header = read_header(self._config_path)
-        return self._header
-
     def _can_install_without_root(self, dest: str) -> bool:
         try:
             owner_of_dest = getpwuid(os.stat(dest).st_uid).pw_name
@@ -210,38 +231,36 @@ class ModuleConfigManager:
             return False
         return True
 
-    def _install_file(self, src: str, dest: str, content: str) -> None:
-        dest = realpath(dest)
-
-        command = ['tee', dest]
-
+    def _get_install_prefix(self, dest: str) -> str:
+        prefix = ''
         if not self._can_install_without_root(dest):
             if not self._settings.switch_to_root:
                 logger.warn(
                     f"installing at \"{dest}\" requires to be in root mode, skipping"
                 )
                 return
-            command = ['sudo', '-E', *command]
+            prefix = 'sudo -E'
+        return prefix
+
+    def _install_file(self, src: str, dest: str, content: str) -> None:
+        dest = realpath(dest)
+        prefix = self._get_install_prefix(dest)
 
         if not self._settings.dry_run:
-            run_command(' '.join(command),
+            run_command(f'{prefix} mkdir -p {os.path.dirname(dest)}',
+                        self._directory)
+            run_command(f'{prefix} cp {src} {dest}', self._directory)
+            run_command(f'{prefix} tee {dest}',
                         self._directory,
                         stdin=str.encode(content + '\n'))
         logger.info(f"Done: {src} -> {dest}")
 
     def _install_bin(self, src: str, dest: str) -> None:
         dest = realpath(dest)
-
-        command = ['cp', src, dest]
-
-        if not self._can_install_without_root(dest):
-            if not self._settings.switch_to_root:
-                logger.warn(
-                    f"installing at \"{dest}\" requires to be in root mode, skipping"
-                )
-                return
-            command = ['sudo', '-E', *command]
+        prefix = self._get_install_prefix(dest)
 
         if not self._settings.dry_run:
-            run_command(' '.join(command), self._directory)
+            run_command(f'{prefix} mkdir -p {os.path.dirname(dest)}',
+                        self._directory)
+            run_command(f'{prefix} cp {src} {dest}', self._directory)
         logger.info(f"Done (bin): {src} -> {dest}")

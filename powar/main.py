@@ -70,18 +70,6 @@ def parse_args_into(app_settings: AppSettings) -> argparse.ArgumentParser:
         metavar="MODULE",
         help="module(s) to install (empty argument installs all modules)")
 
-    # List-packages mode
-    parser_list = subparsers.add_parser(
-        "list", help="list system packages required to install config files")
-    parser_list.set_defaults(mode=AppMode.LIST_PACKAGES)
-    parser_list.add_argument(
-        "modules_to_consider",
-        nargs="*",
-        metavar="MODULE",
-        help=
-        "module(s) to list packages for (empty argument lists for all modules)"
-    )
-
     # New module mode
     parser_new = subparsers.add_parser("new", help="create a new powar module")
     parser_new.set_defaults(mode=AppMode.NEW_MODULE)
@@ -139,17 +127,6 @@ def run_new_module(app_settings: AppSettings) -> None:
     print(f"{module_config_path} created.")
 
 
-def run_list_packages(app_settings: AppSettings,
-                      module_directories: Iterable[str],
-                      global_config: GlobalConfig) -> None:
-    for directory in module_directories:
-        manager = ModuleConfigManager(directory, global_config, app_settings)
-        for package in manager.get_system_packages():
-            print(f"{os.path.basename(directory)}:")
-            print(package)
-            print('\n')
-
-
 def run_install(app_settings: AppSettings, module_directories: Iterable[str],
                 global_config: GlobalConfig) -> None:
     for directory in module_directories:
@@ -189,9 +166,6 @@ def main() -> None:
             os.path.join(app_settings.template_dir, module)
             for module in global_config.modules
         ]
-
-        if app_settings.mode == AppMode.LIST_PACKAGES:
-            return run_list_packages(app_settings, directories, global_config)
 
         # Main logic
         if app_settings.mode == AppMode.INSTALL:

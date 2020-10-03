@@ -2,11 +2,11 @@ import logging
 import types
 import os
 import sys
-from typing import Iterator, Optional, Set, List, Dict, Any, Union
+from typing import Iterator, Optional, Set, List, Dict, Any, Union, Tuple
 from getpass import getuser
 
 from powar.settings import AppSettings
-from powar.util import saved_sys_properties, read_header, run_command
+from powar.util import saved_sys_properties, read_header, run_command, RunCommandResult, realpath
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -28,16 +28,17 @@ class GlobalConfigApi:
     def execute(
         self,
         command: str,
-        stdin=Optional[str],
-        return_stdout=False,
+        stdin: Optional[str] = None,
         decode_stdout=True,
         wait=True,
-    ) -> Optional[Union[str, bytes]]:
+    ) -> RunCommandResult:
         '''
         Run command and return stdout if any
         '''
-        return self._man.execute_command(command, stdin, return_stdout,
-                                         decode_stdout, wait)
+        return self._man.execute_command(command, stdin, decode_stdout, wait)
+
+    def read(self, filename: str, as_bytes=False) -> Union[str, bytes]:
+        return self._man.read_file(filename, as_bytes)
 
 
 class GlobalConfigManager:
@@ -86,14 +87,18 @@ class GlobalConfigManager:
         return self._global_config
 
     def execute_command(self, command: str, stdin: Optional[str],
-                        return_stdout: bool, decode_stdout: bool,
-                        wait: bool) -> Optional[Union[str, bytes]]:
-        stdout = None
+                        decode_stdout: bool, wait: bool) -> RunCommandResult:
+        result = RunCommandResult(stdout=None, code=0)
         if not self._settings.dry_run:
-            stdout = run_command(command, self._directory, return_stdout,
+            result = run_command(command, self._directory, stdin,
                                  decode_stdout, wait)
-        logger.info(f"Ran: {command} for {self._config_path}")
-        return stdout
+        logger.info(
+            f"Ran{'' if wait else ' (in bg)'}: {command} for {self._config_path}"
+        )
+        return result
+
+    def read_file(self, filename: str, as_bytes: bool) -> Union[str, bytes]:
+        return open(realpath(filename), 'rb' if as_bytes else 'r').read()
 
     def _read_header(self) -> Dict[Any, Any]:
         if self._header is None:

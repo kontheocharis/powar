@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 import contextlib
+import dataclasses
 import yaml
 from typing import Union, Any, List, Dict, Tuple, Optional, cast, Iterator, Iterable
 from abc import ABC
@@ -31,13 +32,18 @@ def realpath(path: str) -> str:
     return os.path.expandvars(os.path.expanduser(path))
 
 
+@dataclasses.dataclass
+class RunCommandResult:
+    stdout: Optional[Union[str, bytes]]
+    code: int
+
 def run_command(
     command: str,
     cwd: str,
     stdin: Optional[bytes] = None,
     decode_stdout=True,
     wait=True,
-) -> Optional[Union[str, bytes]]:
+) -> RunCommandResult:
     popenargs = {
         'args': command,
         'shell': True,
@@ -56,22 +62,17 @@ def run_command(
         process.kill()
         raise
     retcode = process.poll()
+
     if retcode:
         try:
             print(stderr.decode())
         except UnicodeDecodeError:
             print(stderr)
-        raise subprocess.CalledProcessError(
-            retcode,
-            process.args,
-            output=stdout,
-            stderr=stderr,
-        )
 
     if decode_stdout:
-        return stdout.decode()
+        return RunCommandResult(stdout=stdout.decode(), code=retcode)
     else:
-        return stdout
+        return RunCommandResult(stdout=stdout, code=retcode)
 
 
 def render_template(
