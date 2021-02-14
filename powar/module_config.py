@@ -185,12 +185,11 @@ class ModuleConfigManager:
         entries: Iterable[Tuple[str, str]],
     ) -> None:
         for src, dest in entries:
-            if self._settings.dry_run:
-                dest_dir = os.path.dirname(dest)
+            if not self._settings.dry_run:
+                dest_dir = realpath(os.path.dirname(dest))
                 dest_file = os.path.basename(dest)
-                run_command(f'mkdir -p {dest_dir}')
-                run_command(
-                    f'cd {dest_dir} && ln -s {realpath(src)} ./{dest_file}')
+                run_command(f'mkdir -p {dest_dir}', self._directory)
+                run_command(f'ln -Fs {realpath(src)} ./{dest_file}', dest_dir)
             logger.info(f"Linked: {src} -> {dest}")
 
     def execute_command(self, command: str, stdin: Optional[str],
