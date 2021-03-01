@@ -1,5 +1,6 @@
 # Own
 testing/
+.vim/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -26,7 +26,7 @@ class GlobalConfigApi:
         self._man = man
 
     def modules(self, *modules: List[str]):
-        self._man.set_modules(modules)
+        self._man.set_modules(*modules)
 
     def execute(
         self,
@@ -94,7 +94,8 @@ class GlobalConfigManager:
                         decode_stdout: bool, wait: bool) -> RunCommandResult:
         result = RunCommandResult(stdout=None, code=0)
         if not self._settings.dry_run:
-            result = run_command(command, self._directory, stdin,
+            result = run_command(command, self._directory,
+                                 stdin.encode('utf8') if stdin else None,
                                  decode_stdout, wait)
         logger.info(
             f"Ran{'' if wait else ' (in bg)'}: {command} for {self._config_path}"

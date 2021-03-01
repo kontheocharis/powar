@@ -27,7 +27,7 @@ class ModuleConfigApi:
         self._man = man
 
     def depends(self, entries: Iterable[str]) -> None:
-        self.ensure_depends_are_met(set(entries))
+        self._man.ensure_depends_are_met(set(entries))
 
     def install(
         self,
@@ -83,7 +83,8 @@ class ModuleConfigApi:
         '''
         Run command and return stdout if any
         '''
-        return self._man.execute_command(command, stdin, decode_stdout, wait)
+        result = self._man.execute_command(command, stdin, decode_stdout, wait)
+        return result.stdout, result.code 
 
     def has(self, module: str) -> bool:
         return self._man.has_module(module)
