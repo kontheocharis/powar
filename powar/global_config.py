@@ -26,7 +26,7 @@ class GlobalConfigApi:
         self._man = man
 
     def modules(self, *modules: List[str]):
-        self._man.set_modules(*modules)
+        self._man.set_modules(modules)
 
     def execute(
         self,
